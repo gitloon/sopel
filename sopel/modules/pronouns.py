@@ -134,30 +134,30 @@ def set_pronouns(bot, trigger):
         return
 
     disambig = ''
-    requested_pronoun_split = pronouns.split("/")
-    if len(requested_pronoun_split) < 5:
+    split_request = pronouns.split("/")
+    if len(split_request) < 5:
         matching = []
-        for known_pronoun_set in bot.memory['pronoun_sets'].values():
-            known_pronoun_split = known_pronoun_set.split("/")
-            if known_pronoun_set.startswith(pronouns + "/") or (
-                len(requested_pronoun_split) == 3
+        for known_set in bot.memory['pronoun_sets'].values():
+            split_set = known_set.split("/")
+            if known_set.startswith(pronouns + "/") or (
+                len(split_request) == 3
                 and (
                     (
                         # "they/.../themself"
-                        requested_pronoun_split[1] == "..."
-                        and requested_pronoun_split[0] == known_pronoun_split[0]
-                        and requested_pronoun_split[2] == known_pronoun_split[4]
+                        split_request[1] == "..."
+                        and split_request[0] == split_set[0]
+                        and split_request[2] == split_set[4]
                     )
                     or (
                         # "they/them/theirs"
-                        requested_pronoun_split[0:2] == known_pronoun_split[0:2]
-                        and requested_pronoun_split[2] == known_pronoun_split[3]
+                        split_request[:2] == split_set[:2]
+                        and split_request[2] == split_set[3]
                     )
                 )
             ):
-                matching.append(known_pronoun_set)
+                matching.append(known_set)
 
-        if len(matching) == 0:
+        if not matching:
             bot.reply(
                 "I'm sorry, I don't know those pronouns. "
                 "You can give me a set I don't know by formatting it "
@@ -166,8 +166,8 @@ def set_pronouns(bot, trigger):
             )
             return
 
-        pronouns = matching[0]
-        if len(matching) > 1:
+        pronouns = matching.pop(0)
+        if matching:
             disambig = " Or, if you meant one of these, please tell me: {}".format(
                 ", ".join(matching[1:])
             )
