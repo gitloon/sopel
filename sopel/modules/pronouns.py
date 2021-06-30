@@ -70,18 +70,70 @@ def setup(bot):
         LOGGER.exception("Couldn't fetch full pronouns list; using default set.")
         return
 
-    fetched_sets = {}
     try:
-        for line in r.text.splitlines():
-            split_set = line.split('\t')
-            short = '{}/.../{}'.format(split_set[0], split_set[-1])
-            fetched_sets[short] = '/'.join(split_set)
+        fetched_pairs = _process_pronoun_sets(r.text.splitlines())
     except Exception:
         # don't care what failed, honestly, since we aren't trying to fix it
         LOGGER.exception("Couldn't parse fetched pronouns; using default set.")
         return
+    else:
+        bot.memory['pronoun_sets'] = dict(fetched_pairs)
 
-    bot.memory['pronoun_sets'] = fetched_sets
+
+def _process_pronoun_sets(set_list):
+    trie = PronounTrie()
+    trie.insert_list(set_list)
+    yield from trie.get_pairs()
+
+
+class PronounTrieNode:
+    def __init__(self, source=''):
+        self.children = {}
+        """Child nodes are stored here."""
+
+        self.freq = 0
+        """Store how many times this node is visited during insertion."""
+
+        self.source = source
+        """The full pronoun set that caused this node's creation."""
+
+
+class PronounTrie:
+    def __init__(self):
+        self.root = PronounTrieNode()
+        """A Trie needs a root entry."""
+
+    def insert(self, pronoun_set):
+        """Insert a single pronoun set."""
+        pronoun_set = pronoun_set.replace('\t', '/')
+        cur = self.root
+        for el in pronoun_set.split('/'):
+            # create a new node if the path doesn't exist
+            cur.children.setdefault(el, PronounTrieNode(pronoun_set))
+
+            # increment frequency
+            cur.children[el].freq += 1
+
+            # go to the next node
+            cur = cur.children[el]
+
+    def insert_list(self, set_list):
+        """Load a list of pronoun sets all at once."""
+        for item in set_list:
+            self.insert(item)
+
+    def get_pairs(self, root=None, prefix=''):
+        """Yield tuples of ``(prefix, full/pronoun/set)``."""
+        if root is None:
+            root = self.root
+
+        if root.freq == 1:
+            yield prefix, root.source
+        else:
+            if prefix:
+                prefix += '/'
+            for word, node in root.children.items():
+                yield from self.get_pairs(node, prefix + word)
 
 
 @plugin.command('pronouns')
