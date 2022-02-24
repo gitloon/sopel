@@ -105,16 +105,14 @@ class PronounTrie:
     def insert(self, pronoun_set):
         """Insert a single pronoun set."""
         pronoun_set = pronoun_set.replace('\t', '/')
-        cur = self.root
-        for el in pronoun_set.split('/'):
+        current_node = self.root
+        for pronoun in pronoun_set.split('/'):
             # create a new node if the path doesn't exist
-            cur.children.setdefault(el, PronounTrieNode(pronoun_set))
+            # and use it as the current node
+            current_node = current_node.children.setdefault(pronoun, PronounTrieNode(pronoun_set))
 
             # increment frequency
-            cur.children[el].freq += 1
-
-            # go to the next node
-            cur = cur.children[el]
+            current_node.freq += 1
 
     def insert_list(self, set_list):
         """Load a list of pronoun sets all at once."""
