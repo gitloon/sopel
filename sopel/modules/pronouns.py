@@ -177,34 +177,34 @@ def say_pronouns(bot, nick, pronouns):
 @plugin.example('.setpronouns they/them')
 def set_pronouns(bot, trigger):
     """Set your pronouns."""
-    pronouns = trigger.group(2)
-    if not pronouns:
+    requested_pronouns = trigger.group(2)
+    if not requested_pronouns:
         bot.reply('What pronouns do you use?')
         return
 
     disambig = ''
-    split_request = pronouns.split("/")
-    if len(split_request) < 5:
+    requested_pronouns_split = requested_pronouns.split("/")
+    if len(requested_pronouns_split) < 5:
         matching = []
-        for known_set in bot.memory['pronoun_sets'].values():
-            split_set = known_set.split("/")
-            if known_set.startswith(pronouns + "/") or (
-                len(split_request) == 3
+        for known_pronoun_set in bot.memory['pronoun_sets'].values():
+            known_split_set = known_pronoun_set.split("/")
+            if known_pronoun_set.startswith(requested_pronouns + "/") or (
+                len(requested_pronouns_split) == 3
                 and (
                     (
                         # "they/.../themself"
-                        split_request[1] == "..."
-                        and split_request[0] == split_set[0]
-                        and split_request[2] == split_set[4]
+                        requested_pronouns_split[1] == "..."
+                        and requested_pronouns_split[0] == known_split_set[0]
+                        and requested_pronouns_split[2] == known_split_set[4]
                     )
                     or (
                         # "they/them/theirs"
-                        split_request[:2] == split_set[:2]
-                        and split_request[2] == split_set[3]
+                        requested_pronouns_split[:2] == known_split_set[:2]
+                        and requested_pronouns_split[2] == known_split_set[3]
                     )
                 )
             ):
-                matching.append(known_set)
+                matching.append(known_pronoun_set)
 
         if not matching:
             bot.reply(
@@ -215,13 +215,13 @@ def set_pronouns(bot, trigger):
             )
             return
 
-        pronouns = matching.pop(0)
+        requested_pronouns = matching.pop(0)
         if matching:
             disambig = " Or, if you meant one of these, please tell me: {}".format(
                 ", ".join(matching[1:])
             )
 
-    bot.db.set_nick_value(trigger.nick, 'pronouns', pronouns)
+    bot.db.set_nick_value(trigger.nick, 'pronouns', requested_pronouns)
     bot.reply(
-        "Thanks for telling me! I'll remember you use {}.{}".format(pronouns, disambig)
+        "Thanks for telling me! I'll remember you use {}.{}".format(requested_pronouns, disambig)
     )
