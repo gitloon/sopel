@@ -65,13 +65,11 @@ def setup(bot):
         r = requests.get(
             'https://github.com/witch-house/pronoun.is/raw/master/resources/pronouns.tab')
         r.raise_for_status()
+        fetched_pairs = _process_pronoun_sets(r.text.splitlines())
     except requests.exceptions.RequestException:
         # don't do anything, just log the failure and use the hard-coded set
         LOGGER.exception("Couldn't fetch full pronouns list; using default set.")
         return
-
-    try:
-        fetched_pairs = _process_pronoun_sets(r.text.splitlines())
     except Exception:
         # don't care what failed, honestly, since we aren't trying to fix it
         LOGGER.exception("Couldn't parse fetched pronouns; using default set.")
