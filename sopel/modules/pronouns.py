@@ -75,7 +75,8 @@ def setup(bot):
         LOGGER.exception("Couldn't parse fetched pronouns; using default set.")
         return
     else:
-        bot.memory['pronoun_sets'] = dict(fetched_pairs)
+        # add fetched pronoun sets to the default set
+        bot.memory['pronoun_sets'].update(fetched_pairs)
 
 
 def _process_pronoun_sets(set_list):
