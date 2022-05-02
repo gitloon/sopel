@@ -146,9 +146,8 @@ def say_post_info(bot, trigger, id_, show_link=True, show_comments_link=False):
         s = bot.memory['reddit_praw'].submission(id=id_)
 
         message = (
-            '{title}{flair} {link}{nsfw} | {points} {points_text} ({percent}) '
-            '| {comments} {comments_text} | Posted by {author} | '
-            'Created at {created}{comments_link}')
+            '{title}{link}{nsfw}'
+            'Posted by {author} | '
 
         flair = ''
         if s.link_flair_text:
@@ -212,10 +211,7 @@ def say_post_info(bot, trigger, id_, show_link=True, show_comments_link=False):
 
         title = html.unescape(s.title)
         message = message.format(
-            title=title, flair=flair, link=link, nsfw=nsfw, points=s.score,
-            points_text=points_text, percent=percent, comments=s.num_comments,
-            comments_text=comments_text, author=author, created=created,
-            comments_link=comments_link)
+            title=title )
 
         bot.say(message)
     except prawcore.exceptions.NotFound:
