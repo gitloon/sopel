@@ -9,6 +9,11 @@ from __future__ import annotations
 
 from sopel import plugin
 
+@plugin.command('butts')
+@plugin.action_command('butts')
+@plugin.example('.butts', r'(‿|‿)')
+def shrug(bot, trigger):
+    bot.say('(‿|‿)')
 
 @plugin.command('shrug')
 @plugin.action_command('shrugs')
