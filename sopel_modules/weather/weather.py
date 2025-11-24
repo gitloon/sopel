@@ -439,11 +439,12 @@ def weather_alerts(bot, trigger):
         alerts = []
         seen = set()
         
-        for feature in features[:5]:  # Limit to first 5 alerts
+        for feature in features[:3]:  # Limit to first 3 alerts
             props = feature.get('properties', {})
             event = props.get('event', 'Unknown Alert')
             severity = props.get('severity', 'Unknown')
-            headline = props.get('headline', '')
+            onset = props.get('onset', '')
+            expires = props.get('expires', '')
             
             # Create a unique identifier for deduplication
             alert_id = f"{event}:{severity}"
@@ -460,7 +461,17 @@ def weather_alerts(bot, trigger):
                 'Unknown': '⚪'
             }.get(severity, '⚪')
             
-            alerts.append(f"{severity_indicator} {event}")
+            # Parse times - keep it concise
+            time_info = ""
+            if expires:
+                try:
+                    exp_dt = datetime.fromisoformat(expires.replace('Z', '+00:00'))
+                    exp_local = exp_dt.astimezone(pytz.timezone('US/Central'))
+                    time_info = f" until {exp_local.strftime('%I:%M%p').lstrip('0')}"
+                except:
+                    pass
+            
+            alerts.append(f"{severity_indicator} {event}{time_info}")
         
         if alerts:
             alert_text = f"{location}: " + " | ".join(alerts)
