@@ -11,6 +11,7 @@ from __future__ import annotations
 import operator
 import random
 import re
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sopel import plugin
@@ -196,7 +197,7 @@ def _roll_dice(dice_match: re.Match[str]) -> DicePouch:
     if dice_num < 0:
         raise NegativeDiceCountError(dice_num)
 
-    # Upper limit for dice should be at most a million. Creating a dict with
+    # Upper limit for dice should be at most a million. Creating a dict with a
     # more than a million elements already takes a noticeable amount of time
     # on a fast computer and ~55kB of memory.
     if dice_num > MAX_DICE:
@@ -319,6 +320,24 @@ def roll(bot: SopelWrapper, trigger: Trigger) -> None:
         )
         return
 
+    # Score tracking
+    now = datetime.now()
+    if 'dice_scores' not in bot.memory:
+        bot.memory['dice_scores'] = []
+
+    # Check if the last score was from a different day
+    if bot.memory['dice_scores'] and bot.memory['dice_scores'][0]['timestamp'].date() != now.date():
+        bot.memory['dice_scores'] = []
+
+    bot.memory['dice_scores'].append({
+        'score': result,
+        'nick': trigger.nick,
+        'timestamp': now,
+        'roll': arg_str_raw
+    })
+    bot.memory['dice_scores'].sort(key=lambda x: x['score'], reverse=True)
+    bot.memory['dice_scores'] = bot.memory['dice_scores'][:5]
+
     try:
         bot.say("%s: %s = %d" % (arg_str_raw, pretty_str, result))
     except ValueError:
@@ -326,3 +345,29 @@ def roll(bot: SopelWrapper, trigger: Trigger) -> None:
         # more than int_max_str_digits digits (4300 by default on CPython)
         # See https://docs.python.org/3.12/library/stdtypes.html#int-max-str-digits
         bot.reply("I can't display a number that big. =(")
+
+
+@plugin.command('scores')
+@plugin.output_prefix('[dice] ')
+def show_scores(bot: SopelWrapper, trigger: Trigger) -> None:
+    """Shows the top 5 dice rolls of the day."""
+    if 'dice_scores' not in bot.memory or not bot.memory['dice_scores']:
+        bot.say("No scores recorded for today yet.")
+        return
+
+    now = datetime.now()
+    scores = bot.memory['dice_scores']
+
+    # Check if scores are stale and clear if necessary
+    if scores and scores[0]['timestamp'].date() != now.date():
+        bot.memory['dice_scores'] = []
+        bot.say("No scores recorded for today yet.")
+        return
+
+    score_list = []
+    for i, entry in enumerate(scores):
+        score_list.append(
+            f"{i + 1}. {entry['nick']} ({entry['score']}; {entry['roll']})"
+        )
+
+    bot.say("Today's High Rolls: " + " | ".join(score_list))
