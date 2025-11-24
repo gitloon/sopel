@@ -376,22 +376,26 @@ def roll(bot: SopelWrapper, trigger: Trigger) -> None:
         )
         return
 
-    # Score tracking - only for 1d20 rolls
+    # Score tracking - only for 1d20 rolls, and only first roll per user per day
     if arg_str_raw.strip().lower() in ['1d20', 'd20']:
         now = datetime.now()
         scores = _get_daily_scores(bot)
 
-        scores.append({
-            'score': result,
-            'nick': trigger.nick,
-            'timestamp': now,
-            'roll': arg_str_raw
-        })
-        scores.sort(key=lambda x: x['score'], reverse=True)
-        scores = scores[:5]
+        # Check if this user has already rolled today
+        already_rolled = any(entry['nick'] == trigger.nick for entry in scores)
         
-        bot.memory['dice_scores'] = scores
-        _save_scores(scores)
+        if not already_rolled:
+            scores.append({
+                'score': result,
+                'nick': trigger.nick,
+                'timestamp': now,
+                'roll': arg_str_raw
+            })
+            scores.sort(key=lambda x: x['score'], reverse=True)
+            scores = scores[:5]
+            
+            bot.memory['dice_scores'] = scores
+            _save_scores(scores)
 
     try:
         bot.say("%s: %s = %d" % (arg_str_raw, pretty_str, result))
