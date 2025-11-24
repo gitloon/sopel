@@ -8,7 +8,9 @@ https://sopel.chat
 """
 from __future__ import annotations
 
+import json
 import operator
+import os
 import random
 import re
 from datetime import datetime
@@ -24,6 +26,7 @@ if TYPE_CHECKING:
 
 
 MAX_DICE = 1000
+SCORES_FILE = os.path.expanduser('~/.sopel/dice_scores.json')
 
 
 class DicePouch:
@@ -185,6 +188,59 @@ def _get_error_message(exc: DiceError) -> str:
     return "Unknown error rolling dice: %r" % exc
 
 
+def _load_scores() -> list[dict]:
+    """Load scores from file."""
+    if not os.path.exists(SCORES_FILE):
+        return []
+    
+    try:
+        with open(SCORES_FILE, 'r') as f:
+            data = json.load(f)
+            # Convert timestamp strings back to datetime
+            for entry in data:
+                entry['timestamp'] = datetime.fromisoformat(entry['timestamp'])
+            return data
+    except (json.JSONDecodeError, KeyError, ValueError):
+        return []
+
+
+def _save_scores(scores: list[dict]) -> None:
+    """Save scores to file."""
+    os.makedirs(os.path.dirname(SCORES_FILE), exist_ok=True)
+    
+    # Convert datetime to ISO format string for JSON serialization
+    serializable_scores = []
+    for entry in scores:
+        serializable_scores.append({
+            'score': entry['score'],
+            'nick': entry['nick'],
+            'timestamp': entry['timestamp'].isoformat(),
+            'roll': entry['roll']
+        })
+    
+    with open(SCORES_FILE, 'w') as f:
+        json.dump(serializable_scores, f, indent=2)
+
+
+def _get_daily_scores(bot: SopelWrapper) -> list[dict]:
+    """Get scores for today, checking for midnight reset."""
+    now = datetime.now()
+    
+    # Load from file if not in memory
+    if 'dice_scores' not in bot.memory:
+        bot.memory['dice_scores'] = _load_scores()
+    
+    scores = bot.memory['dice_scores']
+    
+    # Check if we need to reset (different day)
+    if scores and scores[0]['timestamp'].date() != now.date():
+        scores = []
+        bot.memory['dice_scores'] = scores
+        _save_scores(scores)
+    
+    return scores
+
+
 def _roll_dice(dice_match: re.Match[str]) -> DicePouch:
     dice_num = int(dice_match.group('dice_num') or 1)
     dice_type = int(dice_match.group('dice_type'))
@@ -322,21 +378,19 @@ def roll(bot: SopelWrapper, trigger: Trigger) -> None:
 
     # Score tracking
     now = datetime.now()
-    if 'dice_scores' not in bot.memory:
-        bot.memory['dice_scores'] = []
+    scores = _get_daily_scores(bot)
 
-    # Check if the last score was from a different day
-    if bot.memory['dice_scores'] and bot.memory['dice_scores'][0]['timestamp'].date() != now.date():
-        bot.memory['dice_scores'] = []
-
-    bot.memory['dice_scores'].append({
+    scores.append({
         'score': result,
         'nick': trigger.nick,
         'timestamp': now,
         'roll': arg_str_raw
     })
-    bot.memory['dice_scores'].sort(key=lambda x: x['score'], reverse=True)
-    bot.memory['dice_scores'] = bot.memory['dice_scores'][:5]
+    scores.sort(key=lambda x: x['score'], reverse=True)
+    scores = scores[:5]
+    
+    bot.memory['dice_scores'] = scores
+    _save_scores(scores)
 
     try:
         bot.say("%s: %s = %d" % (arg_str_raw, pretty_str, result))
@@ -351,16 +405,9 @@ def roll(bot: SopelWrapper, trigger: Trigger) -> None:
 @plugin.output_prefix('[dice] ')
 def show_scores(bot: SopelWrapper, trigger: Trigger) -> None:
     """Shows the top 5 dice rolls of the day."""
-    if 'dice_scores' not in bot.memory or not bot.memory['dice_scores']:
-        bot.say("No scores recorded for today yet.")
-        return
-
-    now = datetime.now()
-    scores = bot.memory['dice_scores']
-
-    # Check if scores are stale and clear if necessary
-    if scores and scores[0]['timestamp'].date() != now.date():
-        bot.memory['dice_scores'] = []
+    scores = _get_daily_scores(bot)
+    
+    if not scores:
         bot.say("No scores recorded for today yet.")
         return
 
